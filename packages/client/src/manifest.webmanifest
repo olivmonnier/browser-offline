@@ -1,0 +1,10 @@
+{
+  "name": "Browser Offline",
+  "short_name": "BrowserOff",
+  "theme_color": "#2196f3",
+  "background_color": "#2196f3",
+  "display": "standalone",
+  "Scope": "/",
+  "start_url": "/index.html",
+  "splash_pages": null
+}
