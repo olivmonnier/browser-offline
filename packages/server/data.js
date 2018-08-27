@@ -3,10 +3,8 @@ const { minify } = require('html-minifier');
 const zlib = require('zlib');
 const minifyOptions = {
   collapseWhitespace: true,
-  conservativeCollapse: true,
   minifyCSS: true,
-  minifyJS: true,
-  preserveLineBreaks: true
+  minifyJS: true
 }
 
 function btoa (b) {
