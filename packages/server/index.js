@@ -10,75 +10,52 @@ const URL = urlModule.URL;
 
 const app = express();
 const server = http.createServer(app);
-const url = 'https://www.example.com/';
+const url = 'https://www.lalettrea.fr/';
 
-app.get('/', (req, res) => {
+app.get('/', async (req, res) => {
   const stylesheetContents = {};
-  const browser = puppeteer.launch();
-  const page = browser.then(b => b.newPage());
+  const browser = await puppeteer.launch();
+  const page = await browser.newPage();
 
-  page
-    .then(p => p.on('response', resp => {
-      const responseUrl = resp.url();
-      const sameOrigin = new URL(responseUrl).origin === new URL(url).origin;
-      const isStylesheet = resp.request().resourceType() === 'stylesheet';
-      if (sameOrigin && isStylesheet) {
-        resp.text().then(txt => stylesheetContents[responseUrl] = txt)
+  page.on('response', async resp => {
+    const responseUrl = resp.url();
+    const sameOrigin = new URL(responseUrl).origin === new URL(url).origin;
+    const isStylesheet = resp.request().resourceType() === 'stylesheet';
+    if (sameOrigin && isStylesheet) {
+      stylesheetContents[responseUrl] = await resp.text()
+    }
+  });
+
+  await page.goto(url, {waitUntil: 'networkidle0'});
+
+  await page.$$eval('link[rel="stylesheet"]', (links, content) => {
+    links.forEach(link => {
+      const cssText = content[link.href];
+      if (cssText) {
+        const style = document.createElement('style');
+        style.textContent = cssText;
+        link.replaceWith(style);
       }
-    }))
+    });
+  }, stylesheetContents);
 
-  const navigate = page
-    .then(p => p.goto(url, {waitUntil: 'networkidle0'}))
+  const html = await page.content();
+  const { result, encode } = await processHtml(html, req.headers);
 
-  const inlineCss = Promise.all([page, navigate])
-    .then(([p, ...args]) => p.$$eval('link[rel="stylesheet"]', (links, content) => {
-      links.forEach(link => {
-        const cssText = content[link.href];
-        if (cssText) {
-          const style = document.createElement('style');
-          style.textContent = cssText;
-          link.replaceWith(style);
-        }
-      });
-    }, stylesheetContents));
-
-  return Promise.all([page, inlineCss])
-    .then(([p, ...args]) => p.content())
-    .then(html => processCSS(html))
-    .then(html => processHtml(html, req.headers))
-    .then(({ result, encode }) => {
-      res.set(Object.assign({}, { 'content-type': 'text/html' }, 
-      (encode) ? { 'content-encoding': encode } : {}
-      )).send(result)
-    })
-    .catch(err => console.error(err))
+  res.set(Object.assign({}, 
+    { 'content-type': 'text/html' }, 
+    (encode) ? { 'content-encoding': encode } : {}
+  )).send(result)
 });
 
 server.listen(process.env.PORT || 8000, () => {
   console.log(`Server started on port ${server.address().port} :)`);
 });
 
-function processHtml(html, headers) {
-  return Promise.resolve(minifyHtml(html))
-    .then(htmlmin => stringToZip(htmlmin))
-    .then(zip => zipToString(zip))
-    .then(h => encoding(h, headers))
-}
+async function processHtml(html, headers) {
+  const htmlmin = minifyHtml(html);
+  const htmlZipped = await stringToZip(htmlmin);
+  const htmlString = await zipToString(htmlZipped);
 
-function cleanStyle(html) {
-  const $$ = Promise.resolve(cheerio.load(html));
-  const $style = $$
-    .then($ => $('style'))
-    .then($style => {
-      if ($style.length > 0) {
-        return $style.html(purifyCSS(html, $style.html()))
-      }
-    })
-
-  return Promise.all([$$, $style])
-    .then(([$, ...args])  => $.html())
-}
-
-function processCSS(html) {
-  return cleanStyle(html)
+  return await encoding(htmlString, headers);
 }
