@@ -45,7 +45,7 @@ function deflate(data) {
 
 exports.stringToZip = function (s) {
   return new Promise((resolve, reject) => {
-    lzma.compress(s, 9, function (result, error) {
+    lzma.compress(s, 1, function (result, error) {
       if (error) reject(error);
       const base64String = btoa(result);
       resolve(base64String)
