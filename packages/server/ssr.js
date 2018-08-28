@@ -10,6 +10,7 @@ module.exports = async function(url) {
   const urlToFetch = new URL(url);
   const stylesheetContents = {};
   const scriptsContents = {};
+  const imgsContents = {};
   const tic = Date.now();
 
   if (RENDER_CACHE.has(url)) {
@@ -29,7 +30,7 @@ module.exports = async function(url) {
   await page.setRequestInterception(true);
 
   const resourcesWhiteList = [
-    'document', 'stylesheet', 'script', 'xhr', 'fetch', 'websocket'
+    'document', 'stylesheet', 'script', 'image', 'xhr', 'fetch', 'websocket'
   ];
 
   const urlBlackList = [
@@ -57,12 +58,16 @@ module.exports = async function(url) {
     const href = resp.url();
     const sameOrigin = new URL(href).origin === new URL(url).origin;
     const type = resp.request().resourceType();
+    const headers = resp.headers();
 
     if (sameOrigin) {
       if (type === 'stylesheet') {
         stylesheetContents[href] = await resp.text();
       } else if (type === 'script') {
         scriptsContents[href] = await resp.text();
+      } else if (type === 'image') {
+        const buffer = await resp.buffer();
+        imgsContents[href] = `data:${headers['content-type']};charset=utf-8;base64,${buffer.toString('base64')}`;
       }
     }
   });
@@ -94,7 +99,18 @@ module.exports = async function(url) {
     });
   }, scriptsContents);
 
-  
+  await page.$$eval('img[src]', (imgs, imgsContents) => {
+    imgs.forEach(img => {
+      const imgText = imgsContents[img.src];
+
+      if (imgText) {
+        const i = document.createElement('img');
+        i.setAttribute('src', imgText);
+        img.replaceWith(i);
+      }
+    });
+  }, imgsContents);
+
   const html = await page.content();
   const htmlmin = await compression(html);
   

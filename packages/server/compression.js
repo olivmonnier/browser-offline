@@ -6,5 +6,4 @@ module.exports = async function (html) {
   const htmlString = await zipToString(htmlZipped);
 
   return htmlString;
-
 }
