@@ -2,8 +2,12 @@ const puppeteer = require('puppeteer');
 const urlModule = require('url');
 const URL = urlModule.URL;
 const compression = require('./compression');
-const RENDER_CACHE = new Map();
 let browserWSEndpoint = null;
+
+const STYLESHEETS_CACHE = new Map();
+const SCRIPTS_CACHE = new Map();
+const IMGS_CACHE = new Map();
+const RENDER_CACHE = new Map();
 
 module.exports = async function(url) {
   let browser;
@@ -51,6 +55,24 @@ module.exports = async function(url) {
       return;
     }
 
+    if (STYLESHEETS_CACHE.has(url)) {
+      req.abort();
+      stylesheetContents[url] = STYLESHEETS_CACHE.get(url);
+      return;
+    }
+
+    if (SCRIPTS_CACHE.has(url)) {
+      req.abort();
+      scriptsContents[url] = SCRIPTS_CACHE.get(url);
+      return;
+    }
+
+    if (IMGS_CACHE.has(url)) {
+      req.abort();
+      imgsContents[url] = IMGS_CACHE.get(url);
+      return;
+    }
+
     req.continue();
   });
 
@@ -63,11 +85,14 @@ module.exports = async function(url) {
     if (sameOrigin) {
       if (type === 'stylesheet') {
         stylesheetContents[href] = await resp.text();
+        STYLESHEETS_CACHE.set(href, stylesheetContents[href]);
       } else if (type === 'script') {
         scriptsContents[href] = await resp.text();
+        SCRIPTS_CACHE.set(href, scriptsContents[href]);
       } else if (type === 'image') {
         const buffer = await resp.buffer();
         imgsContents[href] = `data:${headers['content-type']};charset=utf-8;base64,${buffer.toString('base64')}`;
+        IMGS_CACHE.set(href, imgsContents[href]);
       }
     }
   });
