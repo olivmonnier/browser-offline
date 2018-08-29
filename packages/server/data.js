@@ -1,11 +1,5 @@
 const lzma = require('lzma');
-const { minify } = require('html-minifier');
 const zlib = require('zlib');
-const minifyOptions = {
-  collapseWhitespace: true,
-  minifyCSS: true,
-  minifyJS: true
-}
 
 function btoa (b) {
   return new Buffer(b).toString('base64');
@@ -74,13 +68,5 @@ exports.encoding = function (data, headers) {
     return gzip(data);
   } else {
     return Promise.resolve(data);
-  }
-}
-
-exports.minifyHtml = function (html) {
-  try {
-    return minify(html, minifyOptions)
-  } catch (err) {
-    return html
   }
 }

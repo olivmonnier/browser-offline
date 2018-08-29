@@ -7,6 +7,7 @@ let browserWSEndpoint = null;
 const STYLESHEETS_CACHE = new Map();
 const SCRIPTS_CACHE = new Map();
 const IMGS_CACHE = new Map();
+const FONTS_CACHE = new Map();
 const RENDER_CACHE = new Map();
 
 module.exports = async function(url) {
@@ -15,6 +16,7 @@ module.exports = async function(url) {
   const stylesheetContents = {};
   const scriptsContents = {};
   const imgsContents = {};
+  const fontsContents = {};
   const tic = Date.now();
 
   if (RENDER_CACHE.has(url)) {
@@ -34,7 +36,7 @@ module.exports = async function(url) {
   await page.setRequestInterception(true);
 
   const resourcesWhiteList = [
-    'document', 'stylesheet', 'script', 'image', 'xhr', 'fetch', 'websocket'
+    'document', 'stylesheet', 'script', 'image', 'font', 'xhr', 'fetch', 'websocket'
   ];
 
   const urlBlackList = [
@@ -44,6 +46,11 @@ module.exports = async function(url) {
   page.on('request', req => {
     const url = req.url();
     const type = req.resourceType();
+
+    // if (req.isNavigationRequest() && req.redirectChain().length) {
+    //   req.abort();
+    //   return;
+    // }
 
     if (urlBlackList.find(regex => url.match(regex))) {
       req.abort();
@@ -73,16 +80,22 @@ module.exports = async function(url) {
       return;
     }
 
+    if (FONTS_CACHE.has(url)) {
+      req.abort();
+      fontsContents[url] = FONTS_CACHE.get(url);
+      return;
+    }
+
     req.continue();
   });
 
   page.on('response', async resp => {
     const href = resp.url();
-    const sameOrigin = new URL(href).origin === new URL(url).origin;
+    // const sameOrigin = new URL(href).origin === new URL(url).origin;
     const type = resp.request().resourceType();
     const headers = resp.headers();
 
-    if (sameOrigin) {
+    if (resp.ok()) {
       if (type === 'stylesheet') {
         stylesheetContents[href] = await resp.text();
         STYLESHEETS_CACHE.set(href, stylesheetContents[href]);
@@ -93,11 +106,15 @@ module.exports = async function(url) {
         const buffer = await resp.buffer();
         imgsContents[href] = `data:${headers['content-type']};charset=utf-8;base64,${buffer.toString('base64')}`;
         IMGS_CACHE.set(href, imgsContents[href]);
+      } else if (type === 'font') {
+        const buffer = await resp.buffer();
+        fontsContents[href] = `data:${headers['content-type']};charset=utf-8;base64,${buffer.toString('base64')}`;
+        FONTS_CACHE.set(href, fontsContents[href]);
       }
     }
   });
 
-  await page.goto(urlToFetch.href, {waitUntil: 'domcontentloaded'});
+  await page.goto(urlToFetch.href, {waitUntil: 'networkidle0'});
 
   await page.$$eval('link[rel="stylesheet"]', (sheets, stylesheetContents) => {
     sheets.forEach(sheet => {
@@ -136,7 +153,14 @@ module.exports = async function(url) {
     });
   }, imgsContents);
 
-  const html = await page.content();
+  let html = await page.content();
+
+  for (let font in fontsContents) {
+    const fontUrl = new URL(font);
+    html = html.replace(fontUrl.pathname, fontsContents[font]);
+  }
+
+  console.info('Nb Characters: ' + html.length);
   const htmlmin = await compression(html);
   
   if (browserWSEndpoint) {
