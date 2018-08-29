@@ -114,7 +114,7 @@ module.exports = async function(url) {
     }
   });
 
-  await page.goto(urlToFetch.href, {waitUntil: 'networkidle0'});
+  await page.goto(urlToFetch.href, {waitUntil: 'domcontentloaded'});
 
   await page.$$eval('link[rel="stylesheet"]', (sheets, stylesheetContents) => {
     sheets.forEach(sheet => {

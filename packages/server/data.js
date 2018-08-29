@@ -1,6 +1,5 @@
 const lzma = require('lzma');
 const zlib = require('zlib');
-const brotli = require('brotli');
 
 function btoa (b) {
   return new Buffer(b).toString('base64');
@@ -36,18 +35,6 @@ function deflate(data) {
       resolve({ result, encode: 'deflate' });
     });
   })
-}
-
-exports.brotliCompress = function(s) {
-  const compressed = brotli.compress(Buffer.from(s), {
-    mode: 1
-  });
-
-  return btoa(compressed);
-}
-
-exports.brotliDecompress = function(s) {
-  return brotli.decompress(Buffer.from(atob(s)));
 }
 
 exports.lzmaCompress = function (s) {
