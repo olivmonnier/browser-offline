@@ -1,8 +1,11 @@
-const { stringToZip, zipToString } = require('./data');
+const { brotliCompress, brotliDecompress, lzmaCompress, lzmaDecompress } = require('./data');
 
 module.exports = async function (html) {
-  const htmlZipped = await stringToZip(html);
-  const htmlString = await zipToString(htmlZipped);
+  // const htmlZipped = await lzmaCompress(html);
+  // const htmlString = await lzmaDecompress(htmlZipped);
 
-  return htmlString;
+  const htmlZipped = brotliCompress(html);
+  // const htmlString = brotliDecompress(htmlZipped);
+
+  return htmlZipped;
 }
