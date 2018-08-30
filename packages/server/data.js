@@ -13,7 +13,7 @@ function base64ToByteArray (base64) {
   const raw = atob(base64);
   const rawLength = raw.length;
   const array = new Uint8Array(new ArrayBuffer(rawLength));
-  for (i = 0; i < rawLength; i++) {
+  for (let i = 0; i < rawLength; i++) {
     array[i] = raw.charCodeAt(i);
   }
   return array;
@@ -52,8 +52,8 @@ exports.lzmaDecompress = function (data) {
     const array = base64ToByteArray(data);
 
     lzma.decompress(array, function (result, error) {
-      if (!(typeof result === 'string')) result = new Uint8Array(result)
       if (error) reject(error);
+      if (!(typeof result === 'string')) result = new Uint8Array(result)
       resolve(result);
     });
   })
